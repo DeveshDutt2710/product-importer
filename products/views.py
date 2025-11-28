@@ -15,6 +15,10 @@ def upload_page(request):
     return render(request, 'products/upload.html')
 
 
+def products_page(request):
+    return render(request, 'products/products.html')
+
+
 class CsvUploadView(AbstractAPIView):
     parser_classes = (MultiPartParser, FormParser)
     

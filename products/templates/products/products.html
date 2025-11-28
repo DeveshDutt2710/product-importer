@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Management - Product Importer</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'products/css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Product Management</h1>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary">Upload CSV</a>
+                <button class="btn btn-primary" id="createProductBtn">Create Product</button>
+                <button class="btn btn-danger" id="bulkDeleteBtn">Delete All</button>
+            </div>
+        </div>
+        
+        <div class="filters-section">
+            <h2>Filters</h2>
+            <div class="filters-grid">
+                <div class="filter-item">
+                    <label for="filterSku">SKU:</label>
+                    <input type="text" id="filterSku" placeholder="Search by SKU">
+                </div>
+                <div class="filter-item">
+                    <label for="filterName">Name:</label>
+                    <input type="text" id="filterName" placeholder="Search by name">
+                </div>
+                <div class="filter-item">
+                    <label for="filterDescription">Description:</label>
+                    <input type="text" id="filterDescription" placeholder="Search by description">
+                </div>
+                <div class="filter-item">
+                    <label for="filterActive">Active:</label>
+                    <select id="filterActive">
+                        <option value="">All</option>
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <button class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
+                    <button class="btn btn-secondary" id="clearFiltersBtn">Clear</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="products-section">
+            <div class="products-header">
+                <h2>Products</h2>
+                <div class="products-count" id="productsCount">Loading...</div>
+            </div>
+            
+            <div class="table-container">
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Active</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                        <tr>
+                            <td colspan="6" class="loading">Loading products...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination-section" id="paginationSection" style="display: none;">
+                <div class="pagination-info">
+                    <span id="paginationInfo"></span>
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn btn-secondary" id="prevPageBtn" disabled>Previous</button>
+                    <span class="page-numbers" id="pageNumbers"></span>
+                    <button class="btn btn-secondary" id="nextPageBtn" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="productModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Create Product</h2>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm">
+                    <input type="hidden" id="productUuid">
+                    <div class="form-group">
+                        <label for="productSku">SKU *</label>
+                        <input type="text" id="productSku" required>
+                        <span class="error-message" id="skuError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="productName">Name *</label>
+                        <input type="text" id="productName" required>
+                        <span class="error-message" id="nameError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="productDescription">Description</label>
+                        <textarea id="productDescription" rows="4"></textarea>
+                        <span class="error-message" id="descriptionError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="productActive" checked>
+                            Active
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveProductBtn">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="deleteModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Delete</h2>
+                <button class="modal-close" id="closeDeleteModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this product? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="bulkDeleteModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Bulk Delete</h2>
+                <button class="modal-close" id="closeBulkDeleteModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete ALL products? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBulkDeleteBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmBulkDeleteBtn">Delete All</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification" style="display: none;">
+        <div class="notification-content">
+            <span class="notification-message" id="notificationMessage"></span>
+            <button class="notification-close" id="closeNotificationBtn">&times;</button>
+        </div>
+    </div>
+    
+    <script>
+        function getCsrfTokenFromCookie() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'csrftoken') {
+                    return value;
+                }
+            }
+            const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            return csrfInput ? csrfInput.value : '';
+        }
+    </script>
+    {% csrf_token %}
+    <script src="{% static 'products/js/products.js' %}"></script>
+</body>
+</html>
+

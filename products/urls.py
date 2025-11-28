@@ -6,11 +6,13 @@ from products.views import (
     ProductBulkDeleteView,
     ProductDetailView,
     ProductListView,
+    products_page,
     upload_page
 )
 
 urlpatterns = [
     path('', upload_page, name='upload-page'),
+    path('products/', products_page, name='products-page'),
     path('api/upload/', CsvUploadView.as_view(), name='csv-upload'),
     path('api/import/<uuid:job_id>/status/', ImportJobStatusView.as_view(), name='import-job-status'),
     path('api/products/', ProductListView.as_view(), name='product-list'),
