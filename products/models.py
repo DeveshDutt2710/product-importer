@@ -51,6 +51,8 @@ class Product(AbstractBaseModel):
             models.Index(fields=['sku']),
             models.Index(fields=['state']),
             models.Index(fields=['name']),
+            models.Index(fields=['state', 'created_at']),
+            models.Index(fields=['state', 'name']),
         ]
 
 
@@ -126,4 +128,6 @@ class ImportJob(AbstractBaseModel):
             models.Index(fields=['status']),
             models.Index(fields=['created_at']),
             models.Index(fields=['state']),
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['state', 'created_at']),
         ]

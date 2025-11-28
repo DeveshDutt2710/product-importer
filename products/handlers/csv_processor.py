@@ -3,9 +3,10 @@ import csv
 from django.db import transaction
 from django.utils import timezone
 
-from products.choices import ImportJobStatuses
+from products.choices import ImportJobStatuses, WebhookEventTypes
 from products.constants import ImportJobConstants, ProductConstants
 from products.dbio import ImportJobDbIO, ProductDbIO
+from products.tasks import trigger_webhooks_for_event
 
 
 class CsvProcessor:
@@ -36,8 +37,11 @@ class CsvProcessor:
             self.import_job.completed_at = timezone.now()
             self.import_job.save(update_fields=['status', 'completed_at'])
             
+            self._trigger_import_completed_webhook()
+            
         except Exception as e:
             self._handle_processing_error(str(e))
+            self._trigger_import_failed_webhook(str(e))
             raise
     
     def _count_csv_rows(self, file_path):
@@ -49,6 +53,7 @@ class CsvProcessor:
         chunk_size = ProductConstants.CSV_CHUNK_SIZE
         chunk = []
         processed_count = 0
+        progress_update_interval = ProductConstants.PROGRESS_UPDATE_INTERVAL
         
         with open(file_path, 'r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -61,13 +66,17 @@ class CsvProcessor:
                 if len(chunk) >= chunk_size:
                     self._bulk_upsert_products(chunk)
                     processed_count += len(chunk)
-                    self._update_progress(processed_count)
+                    
+                    if processed_count % progress_update_interval == 0:
+                        self._update_progress(processed_count)
+                    
                     chunk = []
             
             if chunk:
                 self._bulk_upsert_products(chunk)
                 processed_count += len(chunk)
-                self._update_progress(processed_count)
+            
+            self._update_progress(processed_count)
     
     def _process_row(self, row):
         try:
@@ -108,7 +117,7 @@ class CsvProcessor:
         existing_products = {}
         
         skus = [p['sku'] for p in products_data]
-        existing_products_qs = self.product_dbio.filter_obj({'sku__in': skus})
+        existing_products_qs = self.product_dbio.filter_obj({'sku__in': skus}).only('sku', 'name', 'description')
         
         for product in existing_products_qs:
             existing_skus.add(product.sku)
@@ -116,6 +125,7 @@ class CsvProcessor:
         
         products_to_create = []
         products_to_update = []
+        current_time = timezone.now()
         
         for product_data in products_data:
             sku = product_data['sku']
@@ -123,23 +133,32 @@ class CsvProcessor:
                 existing_product = existing_products[sku]
                 existing_product.name = product_data['name']
                 existing_product.description = product_data['description']
+                existing_product.updated_at = current_time
                 products_to_update.append(existing_product)
             else:
-                products_to_create.append(
-                    self.product_dbio.model(**product_data)
-                )
+                product = self.product_dbio.model(**product_data)
+                product.created_at = current_time
+                product.updated_at = current_time
+                products_to_create.append(product)
         
         if products_to_create:
-            self.product_dbio.model.objects.bulk_create(products_to_create)
+            batch_size = ProductConstants.BULK_CREATE_BATCH_SIZE
+            for i in range(0, len(products_to_create), batch_size):
+                batch = products_to_create[i:i + batch_size]
+                self.product_dbio.model.objects.bulk_create(
+                    batch,
+                    ignore_conflicts=False
+                )
             self.import_job.successful_records += len(products_to_create)
         
         if products_to_update:
-            for product in products_to_update:
-                product.updated_at = timezone.now()
-            self.product_dbio.model.objects.bulk_update(
-                products_to_update,
-                ['name', 'description', 'updated_at']
-            )
+            batch_size = ProductConstants.BULK_UPDATE_BATCH_SIZE
+            for i in range(0, len(products_to_update), batch_size):
+                batch = products_to_update[i:i + batch_size]
+                self.product_dbio.model.objects.bulk_update(
+                    batch,
+                    ['name', 'description', 'updated_at']
+                )
             self.import_job.successful_records += len(products_to_update)
         
         self.import_job.processed_records += len(products_data)
@@ -166,5 +185,24 @@ class CsvProcessor:
         self.import_job.completed_at = timezone.now()
         self.import_job.save(
             update_fields=['status', 'error_message', 'completed_at']
+        )
+    
+    def _trigger_import_completed_webhook(self):
+        from products.handlers.import_job_handler import ImportJobHandler
+        
+        job_data = ImportJobHandler().get_job_status(str(self.import_job.uuid))
+        trigger_webhooks_for_event.delay(
+            WebhookEventTypes.IMPORT_COMPLETED,
+            {'import_job': job_data}
+        )
+    
+    def _trigger_import_failed_webhook(self, error_message):
+        from products.handlers.import_job_handler import ImportJobHandler
+        
+        job_data = ImportJobHandler().get_job_status(str(self.import_job.uuid))
+        job_data['error_message'] = error_message
+        trigger_webhooks_for_event.delay(
+            WebhookEventTypes.IMPORT_FAILED,
+            {'import_job': job_data}
         )
 

@@ -634,6 +634,94 @@ h1 {
     color: #c53030;
 }
 
+.webhooks-section {
+    margin-top: 30px;
+}
+
+.webhooks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.webhooks-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.webhooks-count {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.action-btn-primary {
+    background: #48bb78;
+    color: white;
+}
+
+.action-btn-primary:hover {
+    background: #38a169;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: white;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.test-result {
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.test-result.success {
+    background: #f0fff4;
+    border: 2px solid #68d391;
+}
+
+.test-result.error {
+    background: #fff5f5;
+    border: 2px solid #fc8181;
+}
+
+.test-result h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+}
+
+.test-result.success h3 {
+    color: #22543d;
+}
+
+.test-result.error h3 {
+    color: #c53030;
+}
+
+.test-result p {
+    margin: 10px 0;
+    color: #333;
+}
+
+.test-result pre {
+    background: #f7fafc;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    margin-top: 10px;
+}
+
 @media (max-width: 600px) {
     .container {
         padding: 20px;

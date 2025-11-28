@@ -75,7 +75,9 @@ class ProductHandler:
         if filters is None:
             filters = {}
         
-        queryset = self.product_dbio.get_all_active()
+        queryset = self.product_dbio.get_all_active().only(
+            'uuid', 'sku', 'name', 'description', 'state', 'created_at', 'updated_at'
+        )
         
         sku = filters.get('sku')
         if sku:
@@ -117,7 +119,10 @@ class ProductHandler:
     def bulk_delete_all_products(self):
         products = self.product_dbio.get_all()
         count = products.count()
-        for product in products:
-            product.soft_delete()
+        
+        if count > 0:
+            from base.choices import StateStatuses
+            products.update(state=StateStatuses.INACTIVE)
+        
         return count
 

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Management - Product Importer</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'products/css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Webhook Management</h1>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary">Upload CSV</a>
+                <a href="/products/" class="btn btn-secondary">Products</a>
+                <button class="btn btn-primary" id="createWebhookBtn">Create Webhook</button>
+            </div>
+        </div>
+        
+        <div class="filters-section">
+            <h2>Filters</h2>
+            <div class="filters-grid">
+                <div class="filter-item">
+                    <label for="filterEventType">Event Type:</label>
+                    <select id="filterEventType">
+                        <option value="">All</option>
+                        <option value="product.created">Product Created</option>
+                        <option value="product.updated">Product Updated</option>
+                        <option value="product.deleted">Product Deleted</option>
+                        <option value="import.completed">Import Completed</option>
+                        <option value="import.failed">Import Failed</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="filterEnabled">Enabled:</label>
+                    <select id="filterEnabled">
+                        <option value="">All</option>
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <button class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
+                    <button class="btn btn-secondary" id="clearFiltersBtn">Clear</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="webhooks-section">
+            <div class="webhooks-header">
+                <h2>Webhooks</h2>
+                <div class="webhooks-count" id="webhooksCount">Loading...</div>
+            </div>
+            
+            <div class="table-container">
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Event Type</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="webhooksTableBody">
+                        <tr>
+                            <td colspan="5" class="loading">Loading webhooks...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="webhookModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Create Webhook</h2>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="webhookForm">
+                    <input type="hidden" id="webhookUuid">
+                    <div class="form-group">
+                        <label for="webhookUrl">URL *</label>
+                        <input type="url" id="webhookUrl" required placeholder="https://example.com/webhook">
+                        <span class="error-message" id="urlError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="webhookEventType">Event Type *</label>
+                        <select id="webhookEventType" required>
+                            <option value="">Select event type</option>
+                            <option value="product.created">Product Created</option>
+                            <option value="product.updated">Product Updated</option>
+                            <option value="product.deleted">Product Deleted</option>
+                            <option value="import.completed">Import Completed</option>
+                            <option value="import.failed">Import Failed</option>
+                        </select>
+                        <span class="error-message" id="eventTypeError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="webhookSecret">Secret (Optional)</label>
+                        <input type="text" id="webhookSecret" placeholder="Secret for webhook signature">
+                        <span class="error-message" id="secretError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="webhookEnabled" checked>
+                            Enabled
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveWebhookBtn">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="testResultModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Test Result</h2>
+                <button class="modal-close" id="closeTestResultModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="testResultContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeTestResultBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="deleteModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Delete</h2>
+                <button class="modal-close" id="closeDeleteModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this webhook? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification" style="display: none;">
+        <div class="notification-content">
+            <span class="notification-message" id="notificationMessage"></span>
+            <button class="notification-close" id="closeNotificationBtn">&times;</button>
+        </div>
+    </div>
+    
+    <script>
+        function getCsrfTokenFromCookie() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'csrftoken') {
+                    return value;
+                }
+            }
+            const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            return csrfInput ? csrfInput.value : '';
+        }
+    </script>
+    {% csrf_token %}
+    <script src="{% static 'products/js/webhooks.js' %}"></script>
+</body>
+</html>
+
