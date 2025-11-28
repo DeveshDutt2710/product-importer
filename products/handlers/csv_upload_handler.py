@@ -1,8 +1,10 @@
-from rest_framework import status
-
 from products.choices import ImportJobStatuses
 from products.dbio import ImportJobDbIO
-from products.handlers.file_handler import save_uploaded_file_to_temp, validate_csv_file
+from products.handlers.file_handler import (
+    save_uploaded_file_to_temp, 
+    validate_csv_file
+)
+from products.tasks import process_csv_import
 
 
 class CsvUploadHandler:
@@ -20,6 +22,8 @@ class CsvUploadHandler:
             'total_records': 0,
             'progress': 0,
         })
+        
+        process_csv_import.delay(str(import_job.uuid), temp_file_path)
         
         return {
             'job_id': str(import_job.uuid),
