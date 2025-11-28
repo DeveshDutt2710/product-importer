@@ -1,3 +1,4 @@
+from django.shortcuts import render
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 
@@ -5,6 +6,10 @@ from base.response import APIResponse
 from base.views import AbstractAPIView
 from products.handlers.csv_upload_handler import CsvUploadHandler
 from products.handlers.import_job_handler import ImportJobHandler
+
+
+def upload_page(request):
+    return render(request, 'products/upload.html')
 
 
 class CsvUploadView(AbstractAPIView):

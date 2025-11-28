@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Upload - Product Importer</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'products/css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Product CSV Importer</h1>
+        
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept=".csv" hidden>
+                <div class="upload-content">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p class="upload-text">Drag and drop your CSV file here</p>
+                    <p class="upload-subtext">or</p>
+                    <button class="btn btn-primary" id="selectFileBtn">Select File</button>
+                    <p class="file-info" id="fileInfo"></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <h2>Upload Progress</h2>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+            <div class="status-info">
+                <div class="status-item">
+                    <span class="status-label">Status:</span>
+                    <span class="status-value" id="statusValue">Pending</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Processed:</span>
+                    <span class="status-value" id="processedValue">0 / 0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Successful:</span>
+                    <span class="status-value" id="successfulValue">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Failed:</span>
+                    <span class="status-value" id="failedValue">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="error-section" id="errorSection" style="display: none;">
+            <div class="error-message" id="errorMessage"></div>
+            <button class="btn btn-secondary" id="retryBtn">Retry Upload</button>
+        </div>
+        
+        <div class="success-section" id="successSection" style="display: none;">
+            <div class="success-message">
+                <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <p>Upload completed successfully!</p>
+            </div>
+            <button class="btn btn-primary" id="uploadAnotherBtn">Upload Another File</button>
+        </div>
+    </div>
+    
+    <script src="{% static 'products/js/upload.js' %}"></script>
+</body>
+</html>
+
