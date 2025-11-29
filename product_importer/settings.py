@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
+import ssl
 from pathlib import Path
 
 import dj_database_url
@@ -148,8 +149,36 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REDIS_URL = os.environ.get('REDIS_URL', os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL)
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', REDIS_URL)
+
+def add_ssl_to_redis_url(url):
+    if url and url.startswith('rediss://') and 'ssl_cert_reqs' not in url:
+        separator = '&' if '?' in url else '?'
+        return f"{url}{separator}ssl_cert_reqs=CERT_NONE"
+    return url
+
+CELERY_BROKER_URL = add_ssl_to_redis_url(os.environ.get('CELERY_BROKER_URL', REDIS_URL))
+CELERY_RESULT_BACKEND = add_ssl_to_redis_url(os.environ.get('CELERY_RESULT_BACKEND', REDIS_URL))
+
+if CELERY_BROKER_URL.startswith('rediss://'):
+    CELERY_BROKER_TRANSPORT_OPTIONS = {
+        'ssl_cert_reqs': ssl.CERT_NONE,
+        'ssl_ca_certs': None,
+        'ssl_certfile': None,
+        'ssl_keyfile': None,
+    }
+else:
+    CELERY_BROKER_TRANSPORT_OPTIONS = {}
+
+if CELERY_RESULT_BACKEND.startswith('rediss://'):
+    CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {
+        'ssl_cert_reqs': ssl.CERT_NONE,
+        'ssl_ca_certs': None,
+        'ssl_certfile': None,
+        'ssl_keyfile': None,
+    }
+else:
+    CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {}
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

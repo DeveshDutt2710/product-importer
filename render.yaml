@@ -19,6 +19,12 @@ services:
           property: connectionString
       - key: ALLOWED_HOSTS
         sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
 
 databases:
   - name: product-importer-db
