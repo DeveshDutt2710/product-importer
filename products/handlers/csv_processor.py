@@ -6,7 +6,6 @@ from django.utils import timezone
 from products.choices import ImportJobStatuses, WebhookEventTypes
 from products.constants import ImportJobConstants, ProductConstants
 from products.dbio import ImportJobDbIO, ProductDbIO
-from products.tasks import trigger_webhooks_for_event
 
 
 class CsvProcessor:
@@ -113,6 +112,13 @@ class CsvProcessor:
         if not products_data:
             return
         
+        deduplicated_data = {}
+        for product_data in products_data:
+            sku = product_data['sku']
+            deduplicated_data[sku] = product_data
+        
+        products_data = list(deduplicated_data.values())
+        
         existing_skus = set()
         existing_products = {}
         
@@ -147,7 +153,7 @@ class CsvProcessor:
                 batch = products_to_create[i:i + batch_size]
                 self.product_dbio.model.objects.bulk_create(
                     batch,
-                    ignore_conflicts=False
+                    ignore_conflicts=True
                 )
             self.import_job.successful_records += len(products_to_create)
         
@@ -189,6 +195,7 @@ class CsvProcessor:
     
     def _trigger_import_completed_webhook(self):
         from products.handlers.import_job_handler import ImportJobHandler
+        from products.tasks import trigger_webhooks_for_event
         
         job_data = ImportJobHandler().get_job_status(str(self.import_job.uuid))
         trigger_webhooks_for_event.delay(
@@ -198,6 +205,7 @@ class CsvProcessor:
     
     def _trigger_import_failed_webhook(self, error_message):
         from products.handlers.import_job_handler import ImportJobHandler
+        from products.tasks import trigger_webhooks_for_event
         
         job_data = ImportJobHandler().get_job_status(str(self.import_job.uuid))
         job_data['error_message'] = error_message

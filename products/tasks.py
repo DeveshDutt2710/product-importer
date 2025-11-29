@@ -22,7 +22,7 @@ def deliver_webhook_task(webhook_uuid, event_type, payload):
         return {'success': False, 'error': 'Webhook not found'}
     
     handler = WebhookHandler()
-    result = handler.deliver_webhook(webhook, payload)
+    result = handler.deliver_webhook(webhook, event_type, payload)
     
     if not result['success']:
         retry_count = payload.get('_retry_count', 0)

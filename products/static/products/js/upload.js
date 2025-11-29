@@ -17,18 +17,24 @@ const uploadAnotherBtn = document.getElementById('uploadAnotherBtn');
 
 let currentJobId = null;
 let pollInterval = null;
+let isUploading = false;
 
-selectFileBtn.addEventListener('click', () => {
+selectFileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     fileInput.click();
 });
 
-uploadArea.addEventListener('click', () => {
-    fileInput.click();
+uploadArea.addEventListener('click', (e) => {
+    if (e.target !== selectFileBtn && !selectFileBtn.contains(e.target)) {
+        fileInput.click();
+    }
 });
 
 fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFileSelect(e.target.files[0]);
+    if (e.target.files.length > 0 && !isUploading) {
+        const file = e.target.files[0];
+        e.target.value = '';
+        handleFileSelect(file);
     }
 });
 
@@ -64,6 +70,11 @@ uploadAnotherBtn.addEventListener('click', () => {
 });
 
 function handleFileSelect(file) {
+    if (isUploading) {
+        console.log('Upload already in progress, ignoring file selection');
+        return;
+    }
+    
     fileInfo.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
     
     const formData = new FormData();
@@ -73,27 +84,64 @@ function handleFileSelect(file) {
 }
 
 function uploadFile(formData) {
+    if (isUploading) {
+        console.log('Upload already in progress');
+        return;
+    }
+    
+    isUploading = true;
     progressSection.style.display = 'block';
     errorSection.style.display = 'none';
     successSection.style.display = 'none';
     updateProgress(0, 'pending', 0, 0, 0, 0);
     
+    const csrfToken = getCsrfToken();
+    
     fetch('/api/upload/', {
         method: 'POST',
-        body: formData
+        headers: {
+            'X-CSRFToken': csrfToken
+        },
+        body: formData,
+        credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.error('Non-JSON response:', text.substring(0, 200));
+                throw new Error('Server returned non-JSON response. Check console for details.');
+            });
+        }
+        return response.json().then(data => {
+            if (!response.ok) {
+                throw new Error(data.error || `Upload failed with status ${response.status}`);
+            }
+            return data;
+        });
+    })
     .then(data => {
         if (data.error) {
+            isUploading = false;
             showError(data.error);
             return;
         }
         
+        if (!data.job_id) {
+            isUploading = false;
+            console.error('Response data:', data);
+            showError('No job ID received from server. Check console for response details.');
+            return;
+        }
+        
         currentJobId = data.job_id;
-        statusValue.textContent = data.status;
+        statusValue.textContent = data.status || 'pending';
+        isUploading = false;
         startPolling(currentJobId);
     })
     .catch(error => {
+        isUploading = false;
+        console.error('Upload error:', error);
         showError(`Upload failed: ${error.message}`);
     });
 }
@@ -172,6 +220,7 @@ function resetUI() {
     errorSection.style.display = 'none';
     successSection.style.display = 'none';
     currentJobId = null;
+    isUploading = false;
     stopPolling();
 }
 

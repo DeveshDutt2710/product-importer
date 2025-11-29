@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import time
 
@@ -121,20 +123,34 @@ class WebhookHandler:
         })
         return list(webhooks)
     
-    def deliver_webhook(self, webhook, payload):
+    def deliver_webhook(self, webhook, event_type, payload):
         try:
+            webhook_payload = {
+                'event_type': event_type,
+                'timestamp': time.time(),
+                'data': payload
+            }
+            
             headers = {
                 'Content-Type': 'application/json',
-                'User-Agent': 'ProductImporter/1.0'
+                'User-Agent': 'ProductImporter/1.0',
+                'X-Webhook-Event': event_type,
+                'X-Webhook-Timestamp': str(int(webhook_payload['timestamp']))
             }
             
             if webhook.secret:
+                signature = hmac.new(
+                    webhook.secret.encode('utf-8'),
+                    json.dumps(webhook_payload, sort_keys=True).encode('utf-8'),
+                    hashlib.sha256
+                ).hexdigest()
+                headers['X-Webhook-Signature'] = f'sha256={signature}'
                 headers['X-Webhook-Secret'] = webhook.secret
             
             start_time = time.time()
             response = requests.post(
                 webhook.url,
-                json=payload,
+                json=webhook_payload,
                 headers=headers,
                 timeout=WebhookConstants.WEBHOOK_TIMEOUT
             )
@@ -165,11 +181,9 @@ class WebhookHandler:
         webhook = self.webhook_dbio.get_obj({'uuid': webhook_uuid})
         
         test_payload = {
-            'event_type': webhook.event_type,
             'test': True,
-            'timestamp': time.time(),
             'message': 'This is a test webhook',
         }
         
-        return self.deliver_webhook(webhook, test_payload)
+        return self.deliver_webhook(webhook, webhook.event_type, test_payload)
 

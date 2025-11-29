@@ -1,6 +1,9 @@
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 
 from base.constants import BaseConstants
 from base.response import APIResponse
@@ -27,6 +30,12 @@ def webhooks_page(request):
 
 class CsvUploadView(AbstractAPIView):
     parser_classes = (MultiPartParser, FormParser)
+    permission_classes = (AllowAny,)
+    authentication_classes = []
+    
+    def dispatch(self, request, *args, **kwargs):
+        from django.views.decorators.csrf import csrf_exempt
+        return csrf_exempt(super().dispatch)(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
         if 'file' not in request.FILES:
