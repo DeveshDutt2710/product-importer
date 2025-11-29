@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: product-importer-web
+    env: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn product_importer.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: product_importer.settings
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: product-importer-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        sync: false
+
+  - type: worker
+    name: product-importer-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A product_importer worker --loglevel=info
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: product_importer.settings
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        fromService:
+          name: product-importer-web
+          type: web
+          property: env.SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: product-importer-db
+          property: connectionString
+
+databases:
+  - name: product-importer-db
+    databaseName: product_importer
+    user: product_importer_user
+    plan: free
