@@ -1,6 +1,9 @@
 import os
 import tempfile
+import uuid
 from pathlib import Path
+
+from django.conf import settings
 
 from products.constants import ProductConstants
 
@@ -24,8 +27,12 @@ def validate_csv_file(uploaded_file):
 def save_uploaded_file_to_temp(uploaded_file):
     validate_csv_file(uploaded_file)
     
-    temp_dir = tempfile.gettempdir()
-    temp_file_path = os.path.join(temp_dir, f"csv_import_{uploaded_file.name}")
+    temp_dir = os.path.join(settings.BASE_DIR, 'temp_csv_files')
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    unique_id = str(uuid.uuid4())
+    safe_filename = "".join(c for c in uploaded_file.name if c.isalnum() or c in (' ', '-', '_', '.')).strip()
+    temp_file_path = os.path.join(temp_dir, f"csv_import_{unique_id}_{safe_filename}")
     
     with open(temp_file_path, 'wb+') as destination:
         for chunk in uploaded_file.chunks():

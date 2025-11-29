@@ -1,14 +1,30 @@
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 
 from products.handlers.csv_processor import CsvProcessor
 from products.handlers.webhook_handler import WebhookHandler
 from products.choices import WebhookEventTypes
 
 
-@shared_task
+@shared_task(
+    time_limit=60 * 60,
+    soft_time_limit=55 * 60
+)
 def process_csv_import(import_job_uuid, file_path):
     processor = CsvProcessor(import_job_uuid)
-    processor.process_csv_file(file_path)
+    try:
+        processor.process_csv_file(file_path)
+    except SoftTimeLimitExceeded:
+        error_msg = (
+            'Import task exceeded time limit (55 minutes). '
+            'The file may be too large or processing is too slow on the current CPU tier. '
+            'Please try with a smaller file or consider upgrading to a higher CPU tier.'
+        )
+        if processor.import_job is None:
+            processor.import_job = processor.import_job_dbio.get_obj({'uuid': import_job_uuid})
+        processor._handle_processing_error(error_msg)
+        processor._trigger_import_failed_webhook(error_msg)
+        raise
 
 
 @shared_task

@@ -1,4 +1,5 @@
 import csv
+import os
 
 from django.db import transaction
 from django.utils import timezone
@@ -21,6 +22,12 @@ class CsvProcessor:
             'uuid': self.import_job_uuid
             })
         
+        if not os.path.exists(file_path):
+            error_msg = f"CSV file not found at path: {file_path}"
+            self._handle_processing_error(error_msg)
+            self._trigger_import_failed_webhook(error_msg)
+            raise FileNotFoundError(error_msg)
+        
         self._update_job_status(ImportJobStatuses.PROCESSING)
         self.import_job.started_at = timezone.now()
         self.import_job.save(update_fields=['status', 'started_at'])
@@ -42,6 +49,12 @@ class CsvProcessor:
             self._handle_processing_error(str(e))
             self._trigger_import_failed_webhook(str(e))
             raise
+        finally:
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
     
     def _count_csv_rows(self, file_path):
         with open(file_path, 'r', encoding='utf-8') as csvfile:
